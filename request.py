@@ -1,10 +1,12 @@
-import requests
 import base64
-import os
-import json
-from env import Config
-import githubAPI as GH
 import csv
+import os
+from pprint import pprint
+
+import requests
+
+import githubAPI as GH
+from env import Config
 
 # https://docs.github.com/en/rest/reference/search
 # https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-code
@@ -22,6 +24,7 @@ SAVE_PATH = './output/'
 username = Config.githubAccount['userid']
 token = Config.githubAccount['token']
 
+
 def getSearchResult(query, pageNo):
     saveDir = SAVE_PATH + f"{pageNo}/"
     if os.path.exists(saveDir):
@@ -29,8 +32,8 @@ def getSearchResult(query, pageNo):
     os.makedirs(saveDir)
 
     res = requests.get(ghSearchURI,
-                       auth =(username, token),
-                       params={'q':query,
+                       auth=(username, token),
+                       params={'q': query,
                                'per_page': 100,
                                'page': pageNo})
     data = res.json()
@@ -39,6 +42,7 @@ def getSearchResult(query, pageNo):
         f.write(res.text)
 
     return data
+
 
 def writeItems(searchResult, pageNo):
     if not searchResult: return
@@ -51,20 +55,20 @@ def writeItems(searchResult, pageNo):
         print(len(searchResult['items']), searchResult['incomplete_results'])
         for i, itm in enumerate(searchResult['items']):
             url = itm['url']
-            res = requests.get(url,
-                           auth =(username, token))
-            data = res.json()
+
             try:
+                res = requests.get(url, auth=(username, token))
+                data = res.json()
                 name, sha, content = data['name'], data['sha'], data['content']
                 sourceCode = base64.b64decode(content).decode()
 
-                fileName = sha+'.py'
-                with open(saveDir + fileName, 'w', encoding='utf-8') as file,\
+                fileName = sha + '.py'
+                with open(saveDir + fileName, 'w', encoding='utf-8') as file, \
                         open(saveDir + "index.csv", 'a', newline='') as index:
                     file.write(sourceCode)
                     wr = csv.writer(index)
                     wr.writerow([sha, name, url])
-                print(f"From page {pageNo}, No.{i+1}: {fileName} saved")
+                print(f"From page {pageNo}, No.{i + 1}: {fileName} saved")
             except Exception as e:
                 print(e, url)
 
@@ -75,14 +79,15 @@ def writeItems(searchResult, pageNo):
 
 
 def main(keyword):
-    print(GH.getRateLimit())
+    pprint(GH.getRateLimit())
     if not os.path.exists(SAVE_PATH):
         os.makedirs(SAVE_PATH)
     for p in range(1, 11):
         print(f"#### PAGE NO. {p} ####")
         result = getSearchResult(keyword, p)
         writeItems(result, p)
-        print(GH.getRateLimit())
+        pprint(GH.getRateLimit())
+
 
 if __name__ == '__main__':
     main("import tensorflow language:python")
