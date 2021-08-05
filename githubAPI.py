@@ -1,11 +1,11 @@
 import requests
 from env import Config
 
-githubURI = 'https://api.github.com/'
-username = Config.githubAccount['userid']
-token = Config.githubAccount['token']
+__githubURI = 'https://api.github.com'
+__username = Config.githubAccount['userid']
+__token = Config.githubAccount['token']
 
 def getRateLimit():
     # https://docs.github.com/en/rest/reference/rate-limit
-    res = requests.get(githubURI+'/rate_limit', auth = (username, token))
+    res = requests.get(__githubURI+'/rate_limit', auth = (__username, __token))
     return res.json()

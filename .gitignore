@@ -2,4 +2,4 @@
 env.py
 
 __pycache__
-*/output/*.py
+output/*
