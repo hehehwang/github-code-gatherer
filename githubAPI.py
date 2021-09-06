@@ -9,7 +9,6 @@ config.read('config.ini')
 # Constants
 GHSearchURI = 'https://api.github.com/search/code'
 GH_URI = 'https://api.github.com'
-SAVE_PATH = config['General']['outputDir']
 USERNAME = config['Account']['userid']
 TOKEN = config['Account']['token']
 
@@ -44,7 +43,7 @@ def getSearchPageByCode(query, pageNo:int) -> dict:
     #                            'per_page': 100,
     #                            'page': pageNo})
     res = reqGet(GH_URI+'/search/code', params = {'q': query,
-                                                  'per_page': 100,
+                                                  'per_page': 10,
                                                   'page': pageNo})
     return res
 

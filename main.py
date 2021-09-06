@@ -80,23 +80,27 @@ def saveCheckpoint(crawledPage: int) -> None:
 
 def crawlPage(pageNo:int) -> bool:
     try:
+        conn = sqlite3.connect(DATABASE)
+        curr = conn.cursor()
+
         page = getSearchPageByCode(QUERY, pageNo)
-        names, shas, urls, codes, extensions = [], [], [], [], []
         logger(f"CRAWLING Page #{pageNo}")
         for item in page['items']:
             checkAPILimit()
             if isDuplicated(item['sha']):
                 logger(f"Page #{pageNo}, {item['name']} is DUPLICATED")
                 continue
-            names.append(item['name'])
-            shas.append(item['sha'])
-            codes.append(getCodeFromItem(item))
-            extensions.append(item['name'].split('.')[-1])
+            name = item['name']
+            sha = item['sha']
+            url = item['url']
+            code = getCodeFromItem(item)
+            ext = name.split('.')[-1]
+            curr.execute('INSERT OR IGNORE INTO data (name, sha, url, code, extension) VALUES (?, ?, ?, ?, ?)',
+                        (name, sha, url, code, ext))
             logger(f"Page #{pageNo}, {item['name']} has CRAWLED")
-            pushItemToDB(item)
         logger(f"Page #{pageNo} DONE")
-        # pushRowsToDB(names, shas, urls, codes, extensions)
-        # logger(f"Saved to DB.")
+        conn.commit()
+        logger(f"Saved to DB.")
         return True
 
     except Exception as e:
