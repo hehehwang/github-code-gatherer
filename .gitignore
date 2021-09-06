@@ -1,5 +1,6 @@
 .idea
-env.py
+config.ini
 
 __pycache__
 output/*
+*.db

@@ -1,0 +1,15 @@
+[General]
+# output directory
+database: data.db
+# query string
+query: import tensorflow language:python
+# number of source codes to crawl
+target_pages: 100
+
+[Account]
+# github API token
+userid: min-0-0
+token: 
+
+[Checkpoint]
+crawled_page = 1

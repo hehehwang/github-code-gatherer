@@ -1,0 +1,54 @@
+{
+    "resources":
+    {
+        "core":
+        {
+            "limit": 5000,
+            "used": 106,
+            "remaining": 4894,
+            "reset": 1630942300
+        },
+        "search":
+        {
+            "limit": 30,
+            "used": 0,
+            "remaining": 30,
+            "reset": 1630939714
+        },
+        "graphql":
+        {
+            "limit": 5000,
+            "used": 0,
+            "remaining": 5000,
+            "reset": 1630943254
+        },
+        "integration_manifest":
+        {
+            "limit": 5000,
+            "used": 0,
+            "remaining": 5000,
+            "reset": 1630943254
+        },
+        "source_import":
+        {
+            "limit": 100,
+            "used": 0,
+            "remaining": 100,
+            "reset": 1630939714
+        },
+        "code_scanning_upload":
+        {
+            "limit": 500,
+            "used": 0,
+            "remaining": 500,
+            "reset": 1630943254
+        }
+    },
+    "rate":
+    {
+        "limit": 5000,
+        "used": 106,
+        "remaining": 4894,
+        "reset": 1630942300
+    }
+}
