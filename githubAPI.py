@@ -43,7 +43,7 @@ def getSearchPageByCode(query, pageNo:int) -> dict:
     #                            'per_page': 100,
     #                            'page': pageNo})
     res = reqGet(GH_URI+'/search/code', params = {'q': query,
-                                                  'per_page': 10,
+                                                  'per_page': 100,
                                                   'page': pageNo})
     return res
 

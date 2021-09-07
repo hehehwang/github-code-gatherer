@@ -3,6 +3,7 @@ from githubAPI import *
 from configparser import ConfigParser
 from datetime import datetime
 from time import sleep
+from pprint import pprint
 
 config = ConfigParser()
 config.read('config.ini')
@@ -30,7 +31,7 @@ def checkDB():
     curr.execute("SELECT name FROM sqlite_master WHERE type='table'")
     lst = curr.fetchall()
     if len(lst) < 1:
-        curr.execute("CREATE TABLE data(id integer primary key autoincrement, name TEXT, sha TEXT unique , url TEXT, code TEXT, extension TEXT)")
+        curr.execute("CREATE TABLE data(id integer primary key autoincrement, name TEXT, sha TEXT unique , url TEXT, code TEXT, extension TEXT, Q TEXT)")
     conn.close()
 
 def pushItemToDB(item):
@@ -54,6 +55,7 @@ def pushRowsToDB(names:list, shas:list, urls:list, codes:list, extensions: list)
                      zip(names,shas,urls,codes,extensions))
     conn.commit()
     conn.close()
+
 def isDuplicated(value: str) -> bool:
     conn = sqlite3.connect(DATABASE)
     curr = conn.cursor()
@@ -78,9 +80,8 @@ def saveCheckpoint(crawledPage: int) -> None:
     with open('config.ini', 'w') as f:
         config.write(f)
 
-def crawlPage(pageNo:int) -> bool:
+def crawlPage(pageNo:int, conn) -> bool:
     try:
-        conn = sqlite3.connect(DATABASE)
         curr = conn.cursor()
 
         page = getSearchPageByCode(QUERY, pageNo)
@@ -95,8 +96,8 @@ def crawlPage(pageNo:int) -> bool:
             url = item['url']
             code = getCodeFromItem(item)
             ext = name.split('.')[-1]
-            curr.execute('INSERT OR IGNORE INTO data (name, sha, url, code, extension) VALUES (?, ?, ?, ?, ?)',
-                        (name, sha, url, code, ext))
+            curr.execute('INSERT OR IGNORE INTO data (name, sha, url, code, extension, Q) VALUES (?, ?, ?, ?, ?, ?)',
+                        (name, sha, url, code, ext, QUERY))
             logger(f"Page #{pageNo}, {item['name']} has CRAWLED")
         logger(f"Page #{pageNo} DONE")
         conn.commit()
@@ -110,12 +111,13 @@ def crawlPage(pageNo:int) -> bool:
 def doCrawl():
     logger("Initiate database...")
     checkDB()
-    logger(f"start crawling:\nquery:{QUERY}, target_pages:{TARGET_PAGES}, crawled_page:{PAGE_IDX-1}")
+    conn = sqlite3.connect(DATABASE)
+    logger(f"""start crawling:\nQUERY:"{QUERY}", target_pages:{TARGET_PAGES}, crawled_page:{PAGE_IDX-1}""")
     for p in range(PAGE_IDX, TARGET_PAGES+1):
         checkAPILimit()
-        crawlPage(p)
+        crawlPage(p, conn)
         saveCheckpoint(p)
-
+    conn.close()
 
 if __name__ == '__main__':
     doCrawl()
