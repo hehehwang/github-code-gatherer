@@ -1,9 +1,35 @@
+"""
+github scrapper by code
+due to 1,000 result limits by github api,
+this program crawls 1,000 codes for each byte.
+
+flow: doCrawlBySize -> searchQuery -> crawlPage -> pushItemsToDB
++------------+----------------------------------------------------------+
+| Table name |                           data                           |
++------------+---------+----------------------------+-------------------+
+| column     | type    | property                   | description       |
++------------+---------+----------------------------+-------------------+
+| id         | INTEGER | Primary key, Autoincrement |                   |
++------------+---------+----------------------------+-------------------+
+| file_name  | TEXT    |                            | name of file      |
++------------+---------+----------------------------+-------------------+
+| path_name  | TEXT    |                            | path of file      |
++------------+---------+----------------------------+-------------------+
+| sha        | TEXT    | Unique                     |                   |
++------------+---------+----------------------------+-------------------+
+| url        | TEXT    |                            |                   |
++------------+---------+----------------------------+-------------------+
+| code       | TEXT    |                            | encoded by base64 |
++------------+---------+----------------------------+-------------------+
+| extension  | TEXT    |                            | extension         |
++------------+---------+----------------------------+-------------------+
+| Q          | TEXT    |                            | query             |
++------------+---------+----------------------------+-------------------+
+"""
 import sqlite3
+from pprint import pformat
+
 from githubAPI import *
-from configparser import ConfigParser
-from datetime import datetime
-from pprint import pprint, pformat
-from typing import Union
 
 config = ConfigParser()
 config.read('config.ini')
@@ -23,39 +49,13 @@ extension : TEXT
 Q : TEXT
 """
 
-def logger(text:str):
-    t = datetime.fromtimestamp(int(datetime.now().timestamp())).isoformat()
-    print(t,'\t', text)
 
-def cStr(text:Union[str, int], colorCode:str) -> str:
-    """
-    https://sosomemo.tistory.com/59
-    """
-    c2c = {
-        "k": 30,
-        "r": 31,
-        "g": 32,
-        "y": 33,
-        "b": 34,
-        "m": 35,
-        "c": 36,
-        "w": 37,
-        "bk": 90,
-        "br": 91,
-        "bg": 92,
-        "by": 93,
-        "bb": 94,
-        "bm": 95,
-        "bc": 96,
-        "bw": 97
-    }
-    return f"\033[{c2c[colorCode]}m{str(text)}\033[0m"
-
-def errLogger(data:dict, error:Exception):
+def errLogger(data: dict, error: Exception):
     t = datetime.fromtimestamp(int(datetime.now().timestamp())).isoformat()
     with open('err.log', 'a') as f:
-        f.write(str(t)+ '\t' + str(error) + '\n')
+        f.write(str(t) + '\t' + str(error) + '\n')
         f.write(pformat(data))
+
 
 def checkDB():
     conn = sqlite3.connect(DATABASE)
@@ -67,12 +67,14 @@ def checkDB():
         file_name TEXT, file_path TEXT, sha TEXT unique , url TEXT, code TEXT, extension TEXT, Q TEXT)")
     conn.close()
 
+
 def isDuplicated(value: str) -> bool:
     conn = sqlite3.connect(DATABASE)
     curr = conn.cursor()
     val = curr.execute("SELECT 1 FROM data WHERE sha=?", (value,)).fetchall()
     conn.close()
-    return  bool(val)
+    return bool(val)
+
 
 def saveCheckpoint() -> None:
     config['Checkpoint']['crawled_size'] = str(CRAWLED_SIZE)
@@ -80,7 +82,8 @@ def saveCheckpoint() -> None:
     with open('config.ini', 'w') as f:
         config.write(f)
 
-def pushItemsToDB(items:list):
+
+def pushItemsToDB(items: list):
     conn = sqlite3.connect(DATABASE)
     curr = conn.cursor()
     for item in items:
@@ -91,13 +94,14 @@ def pushItemsToDB(items:list):
         query = item['query']
         ext = file_name.split('.')[-1]
         code = item['code']
-        curr.execute('INSERT OR IGNORE INTO data (file_name, file_path, sha, url, code, extension, Q) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                         (file_name, file_path, sha, url, code, ext, query))
+        curr.execute(
+            'INSERT OR IGNORE INTO data (file_name, file_path, sha, url, code, extension, Q) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (file_name, file_path, sha, url, code, ext, query))
     conn.commit()
     conn.close()
 
 
-def crawlPage(sizedQuery:str, pageNo:int) -> bool:
+def crawlPage(sizedQuery: str, pageNo: int) -> bool:
     page = getSearchPageByCode(sizedQuery, pageNo)
     logger(f"CRAWLING Page #{pageNo}")
     items = []
@@ -105,22 +109,23 @@ def crawlPage(sizedQuery:str, pageNo:int) -> bool:
     try:
         for item in page['items']:
             if isDuplicated(item['sha']):
-                logger(f"#{CRAWLED_SIZE+1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('DUPLICATED', 'r')}")
+                logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('DUPLICATED', 'r')}")
                 continue
 
             try:
                 item['code'] = getCodeFromItem(item)
             except Exception as e:
-                logger(f"{CRAWLED_SIZE+1}-{pageNo}, {cStr(item['name'], 'g')} has {cStr('FAILED', 'br')} due to {str(e)}")
+                logger(
+                    f"{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} has {cStr('FAILED', 'br')} due to {str(e)}")
                 continue
 
             if not item['code']:
-                logger(f"#{CRAWLED_SIZE+1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('NOT A FILE', 'bg')}")
+                logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('NOT A FILE', 'bg')}")
                 continue
 
             item['query'] = sizedQuery
             items.append(item)
-            logger(f"#{CRAWLED_SIZE+1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('CRAWLED', 'bb')}")
+            logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('CRAWLED', 'bb')}")
         logger(f"== Page #{pageNo} DONE ==")
         pushItemsToDB(items)
         logger(f"{cStr('Saved to DB.', 'b')}")
@@ -131,17 +136,19 @@ def crawlPage(sizedQuery:str, pageNo:int) -> bool:
         errLogger(page, e)
         return False
 
+
 def searchQuery(sizeIdx):
     global CRAWLED_PAGE
-    sizedQuery = QUERY+f" size:{sizeIdx}..{sizeIdx+1}"
+    sizedQuery = QUERY + f" size:{sizeIdx}..{sizeIdx + 1}"
     page = getSearchPageByCode(sizedQuery)
     try:
         results = min(1000, page['total_count'])
         if not results:
-            logger(f"NO RESULTS IN {sizeIdx} to {sizeIdx+1}!!")
+            logger(f"NO RESULTS IN {sizeIdx} to {sizeIdx + 1}!!")
         else:
-            logger(f"Found {cStr(page['total_count'], 'br')} codes, Crawling page: {CRAWLED_PAGE+1} to {results//100+1}")
-            while CRAWLED_PAGE < results//100+1:
+            logger(
+                f"Found {cStr(page['total_count'], 'br')} codes, Crawling page: {CRAWLED_PAGE + 1} to {results // 100 + 1}")
+            while CRAWLED_PAGE < results // 100 + 1:
                 pageToCrawl = CRAWLED_PAGE + 1
                 if crawlPage(sizedQuery, pageToCrawl):
                     CRAWLED_PAGE += 1
@@ -157,6 +164,7 @@ def searchQuery(sizeIdx):
         errLogger(page, e)
         return False
 
+
 def doCrawlBySize():
     global CRAWLED_SIZE, CRAWLED_PAGE
 
@@ -164,7 +172,7 @@ def doCrawlBySize():
     checkDB()
     logger(f"""start crawling:\nQUERY:{cStr(QUERY, 'bm')}, target_size:{CRAWLED_SIZE}, crawled_page:{CRAWLED_PAGE}""")
     while CRAWLED_SIZE < 300_000:
-        sizeToCrawl = CRAWLED_SIZE+1
+        sizeToCrawl = CRAWLED_SIZE + 1
         logger(f"Crawling size: {cStr(sizeToCrawl, 'br')}byte")
         if searchQuery(sizeToCrawl):
             logger(f"=== size loop done ===")
@@ -173,8 +181,6 @@ def doCrawlBySize():
             saveCheckpoint()
         else:
             logger("error occurred, but we keep going anyway")
-
-
 
 
 if __name__ == '__main__':
