@@ -147,14 +147,14 @@ def searchQuery(sizeIdx):
             logger(f"NO RESULTS IN {sizeIdx} to {sizeIdx + 1}!!")
         else:
             logger(
-                f"Found {cStr(page['total_count'], 'br')} codes, Crawling page: {CRAWLED_PAGE + 1} to {results // 100 + 1}")
-            while CRAWLED_PAGE < results // 100 + 1:
+                f"Found {cStr(page['total_count'], 'br')} codes, Crawling page: {CRAWLED_PAGE + 1} to {results // 100}")
+            while CRAWLED_PAGE < results // 100:
                 pageToCrawl = CRAWLED_PAGE + 1
                 if crawlPage(sizedQuery, pageToCrawl):
                     CRAWLED_PAGE += 1
                     saveCheckpoint()
                 else:
-                    logger("error occurred, but we keep going anyway")
+                    logger("error occurred, but we're keep going anyway")
                     return False
 
         return True
@@ -180,7 +180,7 @@ def doCrawlBySize():
             CRAWLED_SIZE += 1
             saveCheckpoint()
         else:
-            logger("error occurred, but we keep going anyway")
+            logger("error occurred, but we're keep going anyway")
 
 
 if __name__ == '__main__':

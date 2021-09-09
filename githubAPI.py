@@ -20,19 +20,33 @@ def reqGet(url: str, params: dict = None):
     request GET Method to github api, avoiding secondary rate limit
     https://docs.github.com/en/rest/overview/resources-in-the-rest-api#secondary-rate-limits
     """
-    checkAPILimit()
     while 1:
-        data = requests.get(url, params=params, auth=(USERNAME, TOKEN)).json()
-        if not 'message' in data.keys() and not 'documentation_url' in data.keys():
-            break
-        sleep(3)
+        try:
+            checkAPILimit()
+            req = requests.get(url, params=params, auth=(USERNAME, TOKEN))
+            data = req.json()
+            if not 'message' in data.keys() and not 'documentation_url' in data.keys():
+                break
+            sleep(3)
+        except:
+            logger('retry...')
+            sleep(3)
     return data
 
 
 def getRateLimit() -> dict:
     # https://docs.github.com/en/rest/reference/rate-limit
-    res = requests.get(GH_URI + '/rate_limit', auth=(USERNAME, TOKEN))
-    return res.json()
+    data = {}
+    while 1:
+        try:
+            res = requests.get(GH_URI + '/rate_limit', auth=(USERNAME, TOKEN))
+            data = res.json()
+            break
+        except:
+            logger('retry...')
+            sleep(3)
+            continue
+    return data
 
 
 def getSearchPageByCode(query, pageNo: int = 1) -> dict:
@@ -77,7 +91,7 @@ def isLimitReached() -> bool:
 def checkAPILimit():
     if isLimitReached():
         logger("API LIMIT REACHED! Nap time...")
-        sleep(600)
+        sleep(300)
         logger("Work time!")
 
 
