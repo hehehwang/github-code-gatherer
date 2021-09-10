@@ -1,9 +1,13 @@
 from configparser import ConfigParser
 
+from typing import List
 from time import sleep
 from common import *
 
 import requests
+from aiohttp import ClientSession, BasicAuth
+import asyncio
+from pprint import pprint
 
 config = ConfigParser()
 config.read('config.ini')
@@ -27,10 +31,12 @@ def reqGet(url: str, params: dict = None):
             data = req.json()
             if not 'message' in data.keys() and not 'documentation_url' in data.keys():
                 break
-            sleep(3)
+            pprint(data)
+            # due to secondary limit, you should take a break
+            sleep(30)
         except:
             logger('retry...')
-            sleep(3)
+            sleep(5)
     return data
 
 
@@ -85,15 +91,40 @@ def isLimitReached() -> bool:
     data = getRateLimit()["resources"]
     core, search = int(data["core"]["remaining"]), int(data["search"]["remaining"])
     logger(f"{cStr(f'Remaining limits: core={core}, search={search}', 'bk')}")
-    return core == 0 or search == 0
+    return core < 100 or search == 0
 
 
 def checkAPILimit():
     if isLimitReached():
-        logger("API LIMIT REACHED! Nap time...")
-        sleep(300)
+        logger("API LIMIT is NEAR! Cool down...")
+        sleep(150)
         logger("Work time!")
 
 
+async def gatherContentsFromUrls(urls: List[str]):
+    checkAPILimit()
+    async with ClientSession() as session:
+        results = await asyncio.gather(*[collectContentFromUrl(session, url) for url in urls])
+        return results
+
+async def collectContentFromUrl(session, url: str) -> dict:
+    data = None
+    while data is None:
+       async with session.get(url, auth=BasicAuth(USERNAME, TOKEN)) as resp:
+            try:
+                data = await resp.json()
+                return data
+            except Exception as e:
+                logger(str(e) + '\t' + url)
+                await asyncio.sleep(1)
+
+
 if __name__ == '__main__':
-    pass
+    from pprint import pprint
+    urls = ['https://api.github.com/repositories/328103518/contents/real_time_data_trade.py?ref=7ecb5da6d478290ee0519c38bb6e6a1a997d4e6a',
+'https://api.github.com/repositories/341900652/contents/tradeFunctions.py?ref=3996f299e024f5bdb9a1a5085a41c85b50cfb9a3',]
+    loop = asyncio.get_event_loop()
+    # result = asyncio.run(gatherContentsFromUrls(urls), debug=True)
+    result = loop.run_until_complete(gatherContentsFromUrls(urls))
+    print(type(result))
+    pprint(result)

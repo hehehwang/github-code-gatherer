@@ -30,6 +30,7 @@ import sqlite3
 from pprint import pformat
 
 from githubAPI import *
+import asyncio
 
 config = ConfigParser()
 config.read('config.ini')
@@ -52,7 +53,7 @@ Q : TEXT
 
 def errLogger(data: dict, error: Exception):
     t = datetime.fromtimestamp(int(datetime.now().timestamp())).isoformat()
-    with open('err.log', 'a') as f:
+    with open('err.log', 'a', encoding='utf-8') as f:
         f.write(str(t) + '\t' + str(error) + '\n')
         f.write(pformat(data))
 
@@ -87,8 +88,8 @@ def pushItemsToDB(items: list):
     conn = sqlite3.connect(DATABASE)
     curr = conn.cursor()
     for item in items:
-        file_name = item['name']
-        file_path = item['path']
+        file_name = item['file_name']
+        file_path = item['file_path']
         sha = item['sha']
         url = item['url']
         query = item['query']
@@ -105,64 +106,60 @@ def crawlPage(sizedQuery: str, pageNo: int) -> bool:
     page = getSearchPageByCode(sizedQuery, pageNo)
     logger(f"CRAWLING Page #{pageNo}")
     items = []
+    urls = []
+    shaList = []
+    for item in page['items']:
+        if isDuplicated(item['sha']) or item['sha'] in shaList:
+            logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('DUPLICATED', 'r')}")
+            continue
+        shaList.append(item['sha'])
+        bag = {'file_name':item['name'], 'file_path':item['path'], 'sha': item['sha'],
+               'url': item['url'], 'query': sizedQuery}
+        urls.append(item['url'])
+        items.append(bag)
 
-    try:
-        for item in page['items']:
-            if isDuplicated(item['sha']):
-                logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('DUPLICATED', 'r')}")
-                continue
 
-            try:
-                item['code'] = getCodeFromItem(item)
-            except Exception as e:
-                logger(
-                    f"{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} has {cStr('FAILED', 'br')} due to {str(e)}")
-                continue
+    loop = asyncio.get_event_loop()
+    contents = loop.run_until_complete(gatherContentsFromUrls(urls))
+    for i in range(len(urls)):
+        item = items[i]
+        content = contents[i]
+        if content['type'] != 'file':
+            logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('NOT A FILE', 'bg')}")
+            continue
+        items[i]['code'] = content['content']
+        logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('CRAWLED', 'bb')}")
 
-            if not item['code']:
-                logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('NOT A FILE', 'bg')}")
-                continue
-
-            item['query'] = sizedQuery
-            items.append(item)
-            logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['name'], 'g')} is {cStr('CRAWLED', 'bb')}")
-        logger(f"== Page #{pageNo} DONE ==")
-        pushItemsToDB(items)
-        logger(f"{cStr('Saved to DB.', 'b')}")
-        return True
-
-    except Exception as e:
-        logger(f"!!!! {cStr('Failed', 'r')} to crawl Page #{pageNo}, due to {e} !!!!")
-        errLogger(page, e)
-        return False
+    logger(f"== Page #{pageNo} DONE ==")
+    pushItemsToDB(items)
+    logger(f"{cStr('Saved to DB.', 'b')}")
+    return True
 
 
 def searchQuery(sizeIdx):
     global CRAWLED_PAGE
     sizedQuery = QUERY + f" size:{sizeIdx}..{sizeIdx + 1}"
     page = getSearchPageByCode(sizedQuery)
-    try:
-        results = min(1000, page['total_count'])
-        if not results:
-            logger(f"NO RESULTS IN {sizeIdx} to {sizeIdx + 1}!!")
-        else:
-            logger(
-                f"Found {cStr(page['total_count'], 'br')} codes, Crawling page: {CRAWLED_PAGE + 1} to {results // 100}")
-            while CRAWLED_PAGE < results // 100:
-                pageToCrawl = CRAWLED_PAGE + 1
-                if crawlPage(sizedQuery, pageToCrawl):
-                    CRAWLED_PAGE += 1
-                    saveCheckpoint()
-                else:
-                    logger("error occurred, but we're keep going anyway")
-                    return False
+    # try
+    results = min(1000, page['total_count'])
+    if not results:
+        logger(f"NO RESULTS IN {sizeIdx} to {sizeIdx + 1}!!")
+    else:
+        logger(
+            f"Found {cStr(page['total_count'], 'br')} codes, Crawling page: {CRAWLED_PAGE + 1} to {results // 100}")
+        while CRAWLED_PAGE < results // 100:
+            pageToCrawl = CRAWLED_PAGE + 1
+            crawlPage(sizedQuery, pageToCrawl)
+            CRAWLED_PAGE += 1
+            saveCheckpoint()
+            sleep(5)
 
         return True
 
-    except Exception as e:
-        logger(f"!!!! {cStr('Failed', 'r')} to crawl Size #{sizeIdx}, due to {e} !!!!")
-        errLogger(page, e)
-        return False
+    # except Exception as e:
+    #     logger(f"!!!! {cStr('Failed', 'r')} to crawl Size #{sizeIdx}, due to {e} !!!!")
+    #     errLogger(page, e)
+    #     return False
 
 
 def doCrawlBySize():
