@@ -124,11 +124,15 @@ def crawlPage(sizedQuery: str, pageNo: int) -> bool:
     for i in range(len(urls)):
         item = items[i]
         content = contents[i]
-        if content['type'] != 'file':
-            logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('NOT A FILE', 'bg')}")
+        try:
+            if content['type'] != 'file':
+                logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('NOT A FILE', 'bg')}")
+                continue
+            items[i]['code'] = content['content']
+            logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('CRAWLED', 'bb')}")
+        except Exception as e:
+            logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('ERROR', 'br')} due to {str(e)}")
             continue
-        items[i]['code'] = content['content']
-        logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('CRAWLED', 'bb')}")
 
     logger(f"== Page #{pageNo} DONE ==")
     pushItemsToDB(items)

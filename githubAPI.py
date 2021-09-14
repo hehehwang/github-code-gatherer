@@ -8,6 +8,7 @@ import requests
 from aiohttp import ClientSession, BasicAuth
 import asyncio
 from pprint import pprint
+from datetime import datetime
 
 config = ConfigParser()
 config.read('config.ini')
@@ -15,9 +16,17 @@ config.read('config.ini')
 # Constants
 GHSearchURI = 'https://api.github.com/search/code'
 GH_URI = 'https://api.github.com'
-USERNAME = config['Account']['userid']
-TOKEN = config['Account']['token']
+USERNAMES, TOKENS = [config['Account']['userid'], config['Account']['userid_sub']], \
+                    [config['Account']['token'], config['Account']['token_sub']]
+USERIDX = 0
+USERNAME = USERNAMES[USERIDX]
+TOKEN = TOKENS[USERIDX]
 
+def switchUser():
+    global USERIDX, USERNAME, TOKEN
+    USERIDX = 1-USERIDX
+    USERNAME = USERNAMES[USERIDX]
+    TOKEN = TOKENS[USERIDX]
 
 def reqGet(url: str, params: dict = None):
     """
@@ -90,14 +99,18 @@ def getCodeFromItem(item: dict) -> str:
 def isLimitReached() -> bool:
     data = getRateLimit()["resources"]
     core, search = int(data["core"]["remaining"]), int(data["search"]["remaining"])
-    logger(f"{cStr(f'Remaining limits: core={core}, search={search}', 'bk')}")
+    coreReset, searchReset = datetime.fromtimestamp(int(data["core"]["reset"])).time().isoformat(),\
+                             datetime.fromtimestamp(int(data["search"]["reset"])).time().isoformat()
+    logger(f"{cStr(f'Remaining: core={core} by {coreReset}, search={search} by {searchReset}', 'bk')}")
     return core < 100 or search == 0
 
 
 def checkAPILimit():
-    if isLimitReached():
-        logger("API LIMIT is NEAR! Cool down...")
-        sleep(150)
+    while isLimitReached():
+        logger("API LIMIT is NEAR! Switch user...")
+        switchUser()
+        logger(f"NOW USER: {cStr(USERNAME, 'br')}")
+        sleep(5)
         logger("Work time!")
 
 
