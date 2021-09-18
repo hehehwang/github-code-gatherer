@@ -88,6 +88,7 @@ def pushItemsToDB(items: list):
     conn = sqlite3.connect(DATABASE)
     curr = conn.cursor()
     for item in items:
+        if not item['code']: continue
         file_name = item['file_name']
         file_path = item['file_path']
         sha = item['sha']
@@ -127,11 +128,13 @@ def crawlPage(sizedQuery: str, pageNo: int) -> bool:
         try:
             if content['type'] != 'file':
                 logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('NOT A FILE', 'bg')}")
+                items[i]['code'] = ''
                 continue
             items[i]['code'] = content['content']
             logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('CRAWLED', 'bb')}")
         except Exception as e:
             logger(f"#{CRAWLED_SIZE + 1}-{pageNo}, {cStr(item['file_name'], 'g')} is {cStr('ERROR', 'br')} due to {str(e)}")
+            items[i]['code'] = ''
             continue
 
     logger(f"== Page #{pageNo} DONE ==")
